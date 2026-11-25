@@ -45,4 +45,4 @@ try:
 except FrozenInstanceError:
     print("Correcto: no se puede modificar GameState.")
 
-print("\nPruebas finalizadas correctamente.")
+print("\nPruebas finalizadas correctamente.")   
