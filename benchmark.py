@@ -38,7 +38,7 @@ def detectar_colisiones_secuencial(nave, asteroides):
     return resultados
 
 
-def ejecutar_benchmark(cantidades=(1000, 3000, 5000),
+def ejecutar_benchmark(cantidades=(1000, 10000, 50000, 100000),
                        num_procesos=4):
 
     nave = Nave(0, 0, 10, 2)
