@@ -7,6 +7,37 @@ from game_logic import actualizar_asteroides, detectar_colisiones_nave
 from renderer import Renderer
 
 
+def generar_asteroides(cantidad, nave, ancho, alto, id_inicial):
+    asteroides_lista = []
+
+    for i in range(cantidad):
+        while True:
+            x = random.randint(30, ancho - 30)
+            y = random.randint(30, alto - 30)
+            radio = random.randint(12, 30)
+
+            distancia = (
+                (x - nave.x) ** 2 +
+                (y - nave.y) ** 2
+            ) ** 0.5
+
+            if distancia > nave.radio + radio + 50:
+                break
+
+        asteroides_lista.append(
+            Asteroide(
+                id=id_inicial + i,
+                x=x,
+                y=y,
+                velocidad_x=random.randint(-100, 100),
+                velocidad_y=random.randint(-100, 100),
+                radio=radio
+            )
+        )
+
+    return tuple(asteroides_lista)
+
+
 def main():
     pygame.init()
 
@@ -26,47 +57,34 @@ def main():
         velocidad=300
     )
 
-    # Crear asteroides evitando que aparezcan cerca de la nave
-    asteroides_lista = []
-
-    for i in range(15):
-        while True:
-            x = random.randint(30, ancho - 30)
-            y = random.randint(30, alto - 30)
-            radio = random.randint(12, 30)
-
-            distancia = (
-                (x - nave.x) ** 2 +
-                (y - nave.y) ** 2
-            ) ** 0.5
-
-            if distancia > nave.radio + radio + 50:
-                break
-
-        asteroides_lista.append(
-            Asteroide(
-                id=i,
-                x=x,
-                y=y,
-                velocidad_x=random.randint(-100, 100),
-                velocidad_y=random.randint(-100, 100),
-                radio=radio
-            )
-        )
-
-    asteroides = tuple(asteroides_lista)
-
+    # Configuracion del juego
     puntuacion = 0
+    meta_puntos = 300
+    cantidad_asteroides = 15
+    siguiente_id = 0
+
+    asteroides = generar_asteroides(
+        cantidad_asteroides,
+        nave,
+        ancho,
+        alto,
+        siguiente_id
+    )
+
+    siguiente_id += cantidad_asteroides
+
     jugando = True
+    victoria = False
+    colisiones = ()
 
     # Configuracion de proyectiles
     proyectiles = []
     velocidad_proyectil = 500
     radio_proyectil = 5
 
-    fuente_game_over = pygame.font.SysFont("Arial", 60)
+    fuente_final = pygame.font.SysFont("Arial", 60)
 
-    while jugando:
+    while jugando and not victoria:
         delta_tiempo = reloj.tick(60) / 1000
 
         # Procesar eventos
@@ -164,11 +182,28 @@ def main():
         proyectiles = proyectiles_restantes
         asteroides = tuple(asteroides_lista)
 
-        # Detectar colision de la nave
-        colisiones = detectar_colisiones_nave(nave, asteroides)
+        # Comprobar si se alcanzo la meta
+        if puntuacion >= meta_puntos:
+            victoria = True
 
-        if colisiones:
-            jugando = False
+        # Detectar colision de la nave
+        if not victoria:
+            colisiones = detectar_colisiones_nave(nave, asteroides)
+
+            if colisiones:
+                jugando = False
+
+        # Generar una nueva oleada si no quedan asteroides
+        if jugando and not victoria and len(asteroides) == 0:
+            asteroides = generar_asteroides(
+                cantidad_asteroides,
+                nave,
+                ancho,
+                alto,
+                siguiente_id
+            )
+
+            siguiente_id += cantidad_asteroides
 
         # Dibujar elementos
         renderer.dibujar_fondo()
@@ -187,21 +222,32 @@ def main():
 
         renderer.actualizar_pantalla()
 
-    # Mostrar GAME OVER solamente si hubo colision
-    if colisiones:
-        texto = fuente_game_over.render(
+    # Mostrar resultado final
+    if victoria:
+        texto = fuente_final.render(
+            "¡VICTORIA!",
+            True,
+            (50, 255, 100)
+        )
+
+    elif colisiones:
+        texto = fuente_final.render(
             "GAME OVER",
             True,
             (255, 50, 50)
         )
 
+    else:
+        texto = None
+
+    if texto:
         rectangulo = texto.get_rect(
             center=(ancho // 2, alto // 2)
         )
 
         pantalla.blit(texto, rectangulo)
         pygame.display.flip()
-        pygame.time.wait(2000)
+        pygame.time.wait(2500)
 
     pygame.quit()
 

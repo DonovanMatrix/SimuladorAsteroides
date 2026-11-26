@@ -22,39 +22,68 @@ def procesar_grupo(datos):
     return resultados
 
 
-def detectar_colisiones_paralelo(nave, asteroides, num_procesos=None):
-    asteroides = tuple(asteroides)
+class ProcesadorParalelo:
+    
+    def __init__(self, num_procesos=4):
+        if num_procesos <= 0:
+            raise ValueError("El número de procesos debe ser positivo")
 
-    if not asteroides:
-        return []
+        self.num_procesos = num_procesos
+        self.executor = ProcessPoolExecutor(
+            max_workers=num_procesos
+        )
 
-    if num_procesos is not None and num_procesos <= 0:
-        raise ValueError("El número de procesos debe ser positivo")
+    def detectar_colisiones(self, nave, asteroides):
+        asteroides = tuple(asteroides)
 
-    if num_procesos == 1:
-        return procesar_grupo((nave, asteroides))
+        if not asteroides:
+            return []
 
-    cantidad_procesos = num_procesos or 2
-    cantidad_procesos = min(cantidad_procesos, len(asteroides))
+        cantidad_procesos = min(
+            self.num_procesos,
+            len(asteroides)
+        )
 
-    tamano_grupo = (
-        len(asteroides) + cantidad_procesos - 1
-    ) // cantidad_procesos
+        tamano_grupo = (
+            len(asteroides) + cantidad_procesos - 1
+        ) // cantidad_procesos
 
-    grupos = [
-        asteroides[i:i + tamano_grupo]
-        for i in range(0, len(asteroides), tamano_grupo)
-    ]
+        grupos = [
+            asteroides[i:i + tamano_grupo]
+            for i in range(0, len(asteroides), tamano_grupo)
+        ]
 
-    tareas = [(nave, grupo) for grupo in grupos]
+        tareas = [
+            (nave, grupo)
+            for grupo in grupos
+        ]
 
-    with ProcessPoolExecutor(
-        max_workers=cantidad_procesos
-    ) as executor:
-        resultados = executor.map(procesar_grupo, tareas)
+        resultados = self.executor.map(
+            procesar_grupo,
+            tareas
+        )
 
-    return [
-        identificador
-        for grupo in resultados
-        for identificador in grupo
-    ]
+        return [
+            identificador
+            for grupo in resultados
+            for identificador in grupo
+        ]
+
+    def cerrar(self):
+        self.executor.shutdown(wait=True)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, tipo, valor, traceback):
+        self.cerrar()
+
+def detectar_colisiones_paralelo(
+    nave,
+    asteroides,
+    num_procesos=None
+):
+    procesos = num_procesos or 4
+
+    with ProcesadorParalelo(procesos) as procesador:
+        return procesador.detectar_colisiones(nave, asteroides)
