@@ -1,9 +1,10 @@
 
 import time
 import random
+import os
 
 from models import Nave, Asteroide
-from parallel import detectar_colisiones_paralelo
+from parallel import ProcesadorParalelo
 from game_logic import detectar_colision
 
 
@@ -39,70 +40,93 @@ def detectar_colisiones_secuencial(nave, asteroides):
 
 
 def ejecutar_benchmark(
-    cantidades=(1000, 10000, 50000, 100000),
+    cantidades=(1000, 3000, 5000, 10000, 50000, 100000, 250000),
     num_procesos=4,
-    repeticiones=3
+    repeticiones=10
 ):
-    if num_procesos <= 0:
-        raise ValueError("El número de procesos debe ser positivo")
-
-    if repeticiones <= 0:
-        raise ValueError("El número de repeticiones debe ser positivo")
-
     nave = Nave(0, 0, 10, 2)
 
     print("\n===== BENCHMARK DE ASTEROIDES =====")
-    print(f"Procesos utilizados: {num_procesos}")
+    print(f"Nucleos logicos disponibles: {os.cpu_count()}")
+    print(f"Workers configurados: {num_procesos}")
     print(f"Repeticiones: {repeticiones}")
 
-    for cantidad in cantidades:
-        asteroides = generar_asteroides(cantidad)
+    print("\nRESULTADOS DE RENDIMIENTO")
+    print("-" * 75)
+    print(
+        f"{'Entidades':<15}"
+        f"{'Secuencial FPS':<20}"
+        f"{'Paralelo FPS':<20}"
+        f"{'Aceleracion':<15}"
+    )
+    print("-" * 75)
 
-        tiempos_secuenciales = []
-        tiempos_paralelos = []
+    with ProcesadorParalelo(num_procesos) as procesador:
 
-        for _ in range(repeticiones):
+        for cantidad in cantidades:
+            asteroides = generar_asteroides(cantidad)
 
-            inicio = time.perf_counter()
+            # Calentamiento inicial del procesamiento paralelo
+            procesador.detectar_colisiones(nave, asteroides)
 
-            resultado_secuencial = detectar_colisiones_secuencial(
-                nave, asteroides
-            )
+            tiempos_secuenciales = []
+            tiempos_paralelos = []
 
-            tiempo_secuencial = time.perf_counter() - inicio
-            tiempos_secuenciales.append(tiempo_secuencial)
+            for _ in range(repeticiones):
 
-            inicio = time.perf_counter()
+                inicio = time.perf_counter()
 
-            resultado_paralelo = detectar_colisiones_paralelo(
-                nave, asteroides, num_procesos
-            )
-
-            tiempo_paralelo = time.perf_counter() - inicio
-            tiempos_paralelos.append(tiempo_paralelo)
-
-            if resultado_secuencial != resultado_paralelo:
-                raise AssertionError(
-                    "Los resultados secuenciales y paralelos no coinciden"
+                resultado_secuencial = detectar_colisiones_secuencial(
+                    nave, asteroides
                 )
 
-        promedio_secuencial = (
-            sum(tiempos_secuenciales) / repeticiones
-        )
+                tiempo_secuencial = time.perf_counter() - inicio
+                tiempos_secuenciales.append(tiempo_secuencial)
 
-        promedio_paralelo = (
-            sum(tiempos_paralelos) / repeticiones
-        )
+                inicio = time.perf_counter()
 
-        aceleracion = (
-            promedio_secuencial / promedio_paralelo
-            if promedio_paralelo > 0 else 0
-        )
+                resultado_paralelo = procesador.detectar_colisiones(
+                    nave, asteroides
+                )
 
-        print(f"\nAsteroides: {cantidad}")
-        print(f"Secuencial: {promedio_secuencial:.6f} segundos")
-        print(f"Paralelo:   {promedio_paralelo:.6f} segundos")
-        print(f"Aceleración: {aceleracion:.2f}x")
+                tiempo_paralelo = time.perf_counter() - inicio
+                tiempos_paralelos.append(tiempo_paralelo)
+
+                if resultado_secuencial != resultado_paralelo:
+                    raise AssertionError(
+                        "Los resultados secuenciales y paralelos no coinciden"
+                    )
+
+            promedio_secuencial = (
+                sum(tiempos_secuenciales) / repeticiones
+            )
+
+            promedio_paralelo = (
+                sum(tiempos_paralelos) / repeticiones
+            )
+
+            fps_secuencial = 1 / promedio_secuencial
+            fps_paralelo = 1 / promedio_paralelo
+
+            aceleracion = promedio_secuencial / promedio_paralelo
+
+            print(
+                f"{cantidad:<15}"
+                f"{fps_secuencial:<20.2f}"
+                f"{fps_paralelo:<20.2f}"
+                f"{aceleracion:.2f}x"
+            )
+
+            print(
+                f"  Tiempo secuencial: {promedio_secuencial:.6f} segundos"
+            )
+            print(
+                f"  Tiempo paralelo:   {promedio_paralelo:.6f} segundos"
+            )
+
+    print("-" * 75)
+    print("Todas las comparaciones obtuvieron resultados equivalentes.")
+    print("FPS calculados como 1 / tiempo promedio de procesamiento.")
 
 
 if __name__ == "__main__":
