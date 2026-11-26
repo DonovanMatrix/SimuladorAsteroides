@@ -28,15 +28,22 @@ def detectar_colisiones_paralelo(nave, asteroides, num_procesos=None):
     if not asteroides:
         return []
 
+    if num_procesos is not None and num_procesos <= 0:
+        raise ValueError("El número de procesos debe ser positivo")
+
     if num_procesos == 1:
         return procesar_grupo((nave, asteroides))
 
     cantidad_procesos = num_procesos or 2
     cantidad_procesos = min(cantidad_procesos, len(asteroides))
 
+    tamano_grupo = (
+        len(asteroides) + cantidad_procesos - 1
+    ) // cantidad_procesos
+
     grupos = [
-        asteroides[i::cantidad_procesos]
-        for i in range(cantidad_procesos)
+        asteroides[i:i + tamano_grupo]
+        for i in range(0, len(asteroides), tamano_grupo)
     ]
 
     tareas = [(nave, grupo) for grupo in grupos]
