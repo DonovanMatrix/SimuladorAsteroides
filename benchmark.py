@@ -8,16 +8,16 @@ from game_logic import detectar_colision
 
 
 def generar_asteroides(cantidad):
-    random.seed(42)
+    generador = random.Random(42)
 
     return tuple(
         Asteroide(
             id=i,
-            x=random.uniform(-1000, 1000),
-            y=random.uniform(-1000, 1000),
-            velocidad_x=random.uniform(-5, 5),
-            velocidad_y=random.uniform(-5, 5),
-            radio=random.uniform(2, 10)
+            x=generador.uniform(-1000, 1000),
+            y=generador.uniform(-1000, 1000),
+            velocidad_x=generador.uniform(-5, 5),
+            velocidad_y=generador.uniform(-5, 5),
+            radio=generador.uniform(2, 10)
         )
         for i in range(cantidad)
     )
@@ -38,41 +38,70 @@ def detectar_colisiones_secuencial(nave, asteroides):
     return resultados
 
 
-def ejecutar_benchmark(cantidades=(1000, 3000, 5000),
-                       num_procesos=4):
+def ejecutar_benchmark(
+    cantidades=(1000, 10000, 50000, 100000),
+    num_procesos=4,
+    repeticiones=3
+):
+    if num_procesos <= 0:
+        raise ValueError("El número de procesos debe ser positivo")
+
+    if repeticiones <= 0:
+        raise ValueError("El número de repeticiones debe ser positivo")
 
     nave = Nave(0, 0, 10, 2)
 
     print("\n===== BENCHMARK DE ASTEROIDES =====")
+    print(f"Procesos utilizados: {num_procesos}")
+    print(f"Repeticiones: {repeticiones}")
 
     for cantidad in cantidades:
         asteroides = generar_asteroides(cantidad)
 
-        inicio = time.perf_counter()
-        resultado_secuencial = detectar_colisiones_secuencial(
-            nave, asteroides
-        )
-        tiempo_secuencial = time.perf_counter() - inicio
+        tiempos_secuenciales = []
+        tiempos_paralelos = []
 
-        inicio = time.perf_counter()
-        resultado_paralelo = detectar_colisiones_paralelo(
-            nave, asteroides, num_procesos
-        )
-        tiempo_paralelo = time.perf_counter() - inicio
+        for _ in range(repeticiones):
 
-        if resultado_secuencial != resultado_paralelo:
-            raise AssertionError(
-                "Los resultados secuenciales y paralelos no coinciden"
+            inicio = time.perf_counter()
+
+            resultado_secuencial = detectar_colisiones_secuencial(
+                nave, asteroides
             )
 
+            tiempo_secuencial = time.perf_counter() - inicio
+            tiempos_secuenciales.append(tiempo_secuencial)
+
+            inicio = time.perf_counter()
+
+            resultado_paralelo = detectar_colisiones_paralelo(
+                nave, asteroides, num_procesos
+            )
+
+            tiempo_paralelo = time.perf_counter() - inicio
+            tiempos_paralelos.append(tiempo_paralelo)
+
+            if resultado_secuencial != resultado_paralelo:
+                raise AssertionError(
+                    "Los resultados secuenciales y paralelos no coinciden"
+                )
+
+        promedio_secuencial = (
+            sum(tiempos_secuenciales) / repeticiones
+        )
+
+        promedio_paralelo = (
+            sum(tiempos_paralelos) / repeticiones
+        )
+
         aceleracion = (
-            tiempo_secuencial / tiempo_paralelo
-            if tiempo_paralelo > 0 else 0
+            promedio_secuencial / promedio_paralelo
+            if promedio_paralelo > 0 else 0
         )
 
         print(f"\nAsteroides: {cantidad}")
-        print(f"Secuencial: {tiempo_secuencial:.6f} segundos")
-        print(f"Paralelo:   {tiempo_paralelo:.6f} segundos")
+        print(f"Secuencial: {promedio_secuencial:.6f} segundos")
+        print(f"Paralelo:   {promedio_paralelo:.6f} segundos")
         print(f"Aceleración: {aceleracion:.2f}x")
 
 

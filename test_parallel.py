@@ -25,7 +25,7 @@ class TestParallel(unittest.TestCase):
             Asteroide(4, 15, 15, 1, 1, 1)
         )
 
-    def test_detecta_colisiones_secuenciales(self):
+    def test_detecta_colisiones_por_grupo(self):
         resultado = procesar_grupo(
             (self.nave, self.asteroides)
         )
@@ -71,6 +71,38 @@ class TestParallel(unittest.TestCase):
         )
 
         self.assertEqual(secuencial, paralelo)
+
+    def test_conserva_orden_de_resultados(self):
+        asteroides = (
+            Asteroide(1, 20, 20, 1, 1, 1),
+            Asteroide(2, 3, 0, 1, 1, 2),
+            Asteroide(3, 0, 0, 1, 1, 3),
+            Asteroide(4, 20, 20, 1, 1, 1)
+        )
+
+        resultado = detectar_colisiones_paralelo(
+            self.nave,
+            asteroides,
+            num_procesos=2
+        )
+
+        self.assertEqual(resultado, [2, 3])
+
+    def test_rechaza_cero_procesos(self):
+        with self.assertRaises(ValueError):
+            detectar_colisiones_paralelo(
+                self.nave,
+                self.asteroides,
+                num_procesos=0
+            )
+
+    def test_rechaza_procesos_negativos(self):
+        with self.assertRaises(ValueError):
+            detectar_colisiones_paralelo(
+                self.nave,
+                self.asteroides,
+                num_procesos=-2
+            )
 
 
 if __name__ == "__main__":
